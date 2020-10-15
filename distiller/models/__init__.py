@@ -26,6 +26,7 @@ import torch.nn as nn
 from . import cifar10 as cifar10_models
 from . import mnist as mnist_models
 from . import imagenet as imagenet_extra_models
+from . import imagenet_v2 as imagenet_v2_models
 import pretrainedmodels
 
 from distiller.utils import set_model_input_shape_attr, model_setattr
@@ -34,7 +35,7 @@ from distiller.modules import Mean, EltwiseAdd
 import logging
 msglogger = logging.getLogger()
 
-SUPPORTED_DATASETS = ('imagenet', 'cifar10', 'mnist')
+SUPPORTED_DATASETS = ('imagenet', 'cifar10', 'mnist', 'imagenet_v2')
 
 # ResNet special treatment: we have our own version of ResNet, so we need to over-ride
 # TorchVision's version.
@@ -60,8 +61,12 @@ MNIST_MODEL_NAMES = sorted(name for name in mnist_models.__dict__
                            if name.islower() and not name.startswith("__")
                            and callable(mnist_models.__dict__[name]))
 
+IMAGENET_MODEL_NAMES.extend(['resnet18_v2'])
+
 ALL_MODEL_NAMES = sorted(map(lambda s: s.lower(),
                             set(IMAGENET_MODEL_NAMES + CIFAR10_MODEL_NAMES + MNIST_MODEL_NAMES)))
+
+
 
 
 def patch_torchvision_mobilenet_v2(model):
@@ -131,6 +136,8 @@ def create_model(pretrained, dataset, arch, parallel=True, device_ids=None):
             model = _create_cifar10_model(arch, pretrained)
         elif dataset == 'mnist':
             model = _create_mnist_model(arch, pretrained)
+        elif dataset =='imagenet_v2':
+            model = _create_imagenet_v2_model(arch, pretrained)
     except ValueError:
         if _is_registered_extension(arch, dataset, pretrained):
             model = _create_extension_model(arch, dataset)
@@ -221,6 +228,13 @@ def _create_mnist_model(arch, pretrained):
         raise ValueError("Model {} is not supported for dataset MNIST".format(arch))
     return model
 
+
+def _create_imagenet_v2_model(arch, pretrained):
+    try:
+        model = imagenet_v2_models.__dict__[arch](pretrained=pretrained)
+    except KeyError:
+        raise ValueError("Model {} is not supported for dataset IMAGENET_v2".format(arch))
+    return model
 
 def _set_model_input_shape_attr(model, arch, dataset, pretrained, cadene):
     if cadene and pretrained:

@@ -29,7 +29,7 @@ import numpy as np
 import distiller
 
 
-DATASETS_NAMES = ['imagenet', 'cifar10', 'mnist']
+DATASETS_NAMES = ['imagenet', 'cifar10', 'mnist', 'imagenet_v2']
 
 
 def classification_dataset_str_from_arch(arch):
@@ -37,6 +37,8 @@ def classification_dataset_str_from_arch(arch):
         dataset = 'cifar10' 
     elif 'mnist' in arch:
         dataset = 'mnist' 
+    elif 'resnet18_v2' in arch:
+        dataset = 'imagenet_v2'
     else:
         dataset = 'imagenet'
     return dataset
@@ -51,6 +53,8 @@ def classification_num_classes(dataset):
 def classification_get_input_shape(dataset):
     if dataset == 'imagenet':
         return 1, 3, 224, 224
+    elif dataset == 'imagenet_v2':
+        return 1, 3, 224, 224
     elif dataset == 'cifar10':
         return 1, 3, 32, 32
     elif dataset == 'mnist':
@@ -62,7 +66,8 @@ def classification_get_input_shape(dataset):
 def __dataset_factory(dataset, arch):
     return {'cifar10': cifar10_get_datasets,
             'mnist': mnist_get_datasets,
-            'imagenet': partial(imagenet_get_datasets, arch=arch)}.get(dataset, None)
+            'imagenet': partial(imagenet_get_datasets, arch=arch),
+            'imagenet_v2': partial(imagenet_get_datasets, arch=arch)}.get(dataset, None)
 
 
 def load_data(dataset, arch, data_dir,
