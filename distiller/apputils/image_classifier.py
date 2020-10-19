@@ -54,7 +54,8 @@ class ClassifierCompressor(object):
         - Classifier training, verification and testing
     """
     def __init__(self, args, script_dir):
-        self.args = copy.deepcopy(args)
+        # self.args = copy.deepcopy(args)
+        self.args = args
         self._infer_implicit_args(self.args)
         self.logdir = _init_logger(self.args, script_dir)
         _config_determinism(self.args)

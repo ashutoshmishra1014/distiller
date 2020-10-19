@@ -6,7 +6,7 @@ import distiller.apputils.image_classifier as classifier
 
 import torch
 import torchvision.models as models
-from torchvision.models import resnet18 as resnet18_v2
+
 
 def my_model():
     return models.resnet18(pretrained=True)
@@ -45,17 +45,19 @@ def init_jupyter_default_args(args):
 
 
 def config_learner_args(args, arch, dataset, dataset_path, pretrained, sgd_args, batch, epochs):
-    args.arch = arch
-    args.dataset = dataset
-    args.data = dataset
-    args.pretrained = pretrained
-    args.lr, args.momentum, args.weight_decay = sgd_args[0], sgd_args[1], sgd_args[2]
-    args.batch_size = batch
+    args.arch = "resnet_v3"
+    args.dataset = "imagenet_v2"
+    args.data = "/media/mha/IIS-mha-Extern1/datasets/imagenet_1k/"
+    args.pretrained = False
+    args.lr = sgd_args[0]
+    args.momentum = sgd_args[1]
+    args.weight_decay = sgd_args[2]
+    args.batch_size = 10
     args.epochs = epochs
 
 args = classifier.init_classifier_compression_arg_parser()
 init_jupyter_default_args(args)
-config_learner_args(args, "resnet_v3", "imagenet_v2", "/media/mha/IIS-mha-Extern1/datasets/IMAGENET", False, (0.1, 0.9, 1e-4) , 10, 1)
+config_learner_args(args, "resnet_v3", "imagenet_v2", "/media/mha/IIS-mha-Extern1/datasets/imagenet_1k", False, (0.1, 0.9, 1e-4) , 10, 10)
 app = classifier.ClassifierCompressor(args, script_dir=os.path.dirname("./trash"))
 
 # Run the training loop
