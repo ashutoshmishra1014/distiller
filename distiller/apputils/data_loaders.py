@@ -16,7 +16,7 @@
 
 """Helper code for data loading.
 
-This code will help with the image classification datasets: ImageNet and CIFAR10
+This code will help with the classification datasets: ImageNet, CIFAR10 and DCase
 
 """
 import os
@@ -27,9 +27,14 @@ from torch.utils.data.sampler import Sampler
 from functools import partial
 import numpy as np
 import distiller
+import pandas as pd
+import dcase_util
+import glob
+
+from . import datasets as distiller_datasets
 
 
-DATASETS_NAMES = ['imagenet', 'cifar10', 'mnist', 'imagenet_v2']
+DATASETS_NAMES = ['imagenet', 'cifar10', 'mnist', 'imagenet_v2', 'dcase']
 
 
 def classification_dataset_str_from_arch(arch):
@@ -39,6 +44,8 @@ def classification_dataset_str_from_arch(arch):
         dataset = 'mnist' 
     elif 'resnet18_v2' in arch:
         dataset = 'imagenet_v2'
+    elif 'asc' in arch:
+        dataset = 'dcase'
     else:
         dataset = 'imagenet'
     return dataset
@@ -47,7 +54,9 @@ def classification_dataset_str_from_arch(arch):
 def classification_num_classes(dataset):
     return {'cifar10': 10,
             'mnist': 10,
-            'imagenet': 1000}.get(dataset, None)
+            'imagenet': 1000,
+            'imagenet_v2': 1000,
+            'dcase': 15}.get(dataset, None)
 
 
 def classification_get_input_shape(dataset):
@@ -59,6 +68,8 @@ def classification_get_input_shape(dataset):
         return 1, 3, 32, 32
     elif dataset == 'mnist':
         return 1, 1, 28, 28
+    elif dataset == 'dcase':
+        return 1, 1, 40, 500
     else:
         raise ValueError("dataset %s is not supported" % dataset)
 
@@ -67,7 +78,8 @@ def __dataset_factory(dataset, arch):
     return {'cifar10': cifar10_get_datasets,
             'mnist': mnist_get_datasets,
             'imagenet': partial(imagenet_get_datasets, arch=arch),
-            'imagenet_v2': partial(imagenet_get_datasets, arch=arch)}.get(dataset, None)
+            'imagenet_v2': partial(imagenet_get_datasets, arch=arch),
+            'dcase': dcase_get_datasets}.get(dataset, None)
 
 
 def load_data(dataset, arch, data_dir,
@@ -127,6 +139,22 @@ def mnist_get_datasets(data_dir, load_train=True, load_test=True):
                                       transform=test_transform)
 
     return train_dataset, test_dataset
+
+
+
+def dcase_get_datasets(data_dir, load_train=True, load_test=True):
+    """Load the DCase dataset."""
+
+    train_dataset = None
+    if load_train:
+        train_dataset = distiller_datasets.DCaseDataset(data_dir, load_train=True, validate=False, use_precomputed_labels=False)
+    
+    test_dataset = None
+    if load_test:
+        test_dataset = distiller_datasets.DCaseDataset(data_dir, load_train=False, validate=False, use_precomputed_labels=False)
+
+    return train_dataset, test_dataset
+
 
 
 def cifar10_get_datasets(data_dir, load_train=True, load_test=True):
