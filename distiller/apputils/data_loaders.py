@@ -34,7 +34,7 @@ import glob
 from . import datasets as distiller_datasets
 
 
-DATASETS_NAMES = ['imagenet', 'cifar10', 'mnist', 'imagenet_v2', 'dcase']
+DATASETS_NAMES = ['imagenet', 'cifar10', 'mnist', 'imagenet_v2', 'dcase', 'mri']
 
 
 def classification_dataset_str_from_arch(arch):
@@ -46,6 +46,8 @@ def classification_dataset_str_from_arch(arch):
         dataset = 'imagenet_v2'
     elif 'asc' in arch:
         dataset = 'dcase'
+    elif 'unet' in arch:
+        dataset = 'mri'
     else:
         dataset = 'imagenet'
     return dataset
@@ -56,7 +58,8 @@ def classification_num_classes(dataset):
             'mnist': 10,
             'imagenet': 1000,
             'imagenet_v2': 1000,
-            'dcase': 15}.get(dataset, None)
+            'dcase': 15,
+            'mri': 1}.get(dataset, None)
 
 
 def classification_get_input_shape(dataset):
@@ -70,6 +73,8 @@ def classification_get_input_shape(dataset):
         return 1, 1, 28, 28
     elif dataset == 'dcase':
         return 1, 1, 40, 500
+    elif dataset == 'mri':
+        return 1, 3, 256, 256
     else:
         raise ValueError("dataset %s is not supported" % dataset)
 
@@ -79,7 +84,8 @@ def __dataset_factory(dataset, arch):
             'mnist': mnist_get_datasets,
             'imagenet': partial(imagenet_get_datasets, arch=arch),
             'imagenet_v2': partial(imagenet_get_datasets, arch=arch),
-            'dcase': dcase_get_datasets}.get(dataset, None)
+            'dcase': dcase_get_datasets,
+            'mri': mri_get_datasets}.get(dataset, None)
 
 
 def load_data(dataset, arch, data_dir,
@@ -152,6 +158,29 @@ def dcase_get_datasets(data_dir, load_train=True, load_test=True):
     test_dataset = None
     if load_test:
         test_dataset = distiller_datasets.DCaseDataset(data_dir, load_train=False, validate=False, use_precomputed_labels=False)
+
+    return train_dataset, test_dataset
+
+
+def mri_get_datasets(data_dir, load_train=True, load_test=True):
+    """Load the Brain MRI Segmentation dataset."""
+    train_dataset = None
+    if load_train:
+        train_dataset = distiller_datasets.BrainSegmentationDataset(
+                            images_dir=data_dir,
+                            subset="train",
+                            image_size=256,
+                            random_sampling=True,
+                        )
+
+    test_dataset = None
+    if load_test:
+        test_dataset = distiller_datasets.BrainSegmentationDataset(
+                            images_dir=data_dir,
+                            subset="test",
+                            image_size=256,
+                            random_sampling=True,
+                        )
 
     return train_dataset, test_dataset
 

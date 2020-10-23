@@ -24,6 +24,8 @@ from .execution_env import *
 from .dataset_summaries import *
 from .performance_tracker import *
 
+from .loss import *
+
 del data_loaders
 del checkpoint
 del execution_env

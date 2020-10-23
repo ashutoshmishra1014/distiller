@@ -28,6 +28,7 @@ from . import mnist as mnist_models
 from . import imagenet as imagenet_extra_models
 from . import imagenet_v2 as imagenet_v2_models
 from . import dcase as dcase_models
+from . import mri as mri_models
 import pretrainedmodels
 
 from distiller.utils import set_model_input_shape_attr, model_setattr
@@ -36,7 +37,7 @@ from distiller.modules import Mean, EltwiseAdd
 import logging
 msglogger = logging.getLogger()
 
-SUPPORTED_DATASETS = ('imagenet', 'cifar10', 'mnist', 'imagenet_v2', 'dcase')
+SUPPORTED_DATASETS = ('imagenet', 'cifar10', 'mnist', 'imagenet_v2', 'dcase', 'mri')
 
 # ResNet special treatment: we have our own version of ResNet, so we need to over-ride
 # TorchVision's version.
@@ -64,7 +65,7 @@ MNIST_MODEL_NAMES = sorted(name for name in mnist_models.__dict__
 
 # IMAGENET_MODEL_NAMES.extend(['resnet18_v2'])
 
-EXTRA_MODEL_NAMES = ['resnet18_v2', 'asc']
+EXTRA_MODEL_NAMES = ['resnet18_v2', 'asc', 'unet']
 
 ALL_MODEL_NAMES = sorted(map(lambda s: s.lower(),
                             set(IMAGENET_MODEL_NAMES + CIFAR10_MODEL_NAMES + MNIST_MODEL_NAMES + EXTRA_MODEL_NAMES)))
@@ -143,6 +144,8 @@ def create_model(pretrained, dataset, arch, parallel=True, device_ids=None):
             model = _create_imagenet_v2_model(arch, pretrained)
         elif dataset =='dcase':
             model = _create_dcase_model(arch, pretrained)
+        elif dataset =='mri':
+            model = _create_mri_model(arch, pretrained)
     except ValueError:
         if _is_registered_extension(arch, dataset, pretrained):
             model = _create_extension_model(arch, dataset)
@@ -247,6 +250,14 @@ def _create_dcase_model(arch, pretrained):
         model = dcase_models.__dict__[arch](pretrained=pretrained)
     except KeyError:
         raise ValueError("Model {} is not supported for dataset DCase".format(arch))
+    return model
+
+
+def _create_mri_model(arch, pretrained):
+    try:
+        model = mri_models.__dict__[arch](pretrained=pretrained)
+    except KeyError:
+        raise ValueError("Model {} is not supported for dataset MRI Brain Segmentation".format(arch))
     return model
 
 
