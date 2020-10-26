@@ -38,6 +38,8 @@ import distiller.quantization as quantization
 import distiller.models as models
 from distiller.models import create_model
 from distiller.utils import float_range_argparse_checker as float_range
+from distiller.apputils.metric import dsc_score
+from distiller.apputils.loss import DiceLoss
 
 
 # Logger handle
@@ -78,7 +80,7 @@ class SegmentationCompressor(object):
         self.train_loader, self.val_loader, self.test_loader = (None, None, None)
         self.activations_collectors = create_activation_stats_collectors(
             self.model, *self.args.activation_stats)
-        self.performance_tracker = apputils.SparsityAccuracyTracker(self.args.num_best_scores)
+        self.performance_tracker = apputils.SparsityDSCTracker(self.args.num_best_scores)
     
     def load_datasets(self):
         """Load the datasets"""
@@ -94,16 +96,16 @@ class SegmentationCompressor(object):
     def _infer_implicit_args(args):
         # Infer the dataset from the model name
         if not hasattr(args, 'dataset'):
-            args.dataset = distiller.apputils.classification_dataset_str_from_arch(args.arch)
+            args.dataset = distiller.apputils.segmentation_dataset_str_from_arch(args.arch)
         if not hasattr(args, "num_classes"):
-            args.num_classes = distiller.apputils.classification_num_classes(args.dataset)
+            args.num_classes = distiller.apputils.segmentation_num_classes(args.dataset)
         return args
 
     @staticmethod
     def mock_args():
         """Generate a Namespace based on default arguments"""
-        return ClassifierCompressor._infer_implicit_args(
-            init_classifier_compression_arg_parser().parse_args(['fictive_required_arg',]))
+        return SegmentationCompressor._infer_implicit_args(
+            init_segmentation_compression_arg_parser().parse_args(['fictive_required_arg',]))
 
     @classmethod
     def mock_classifier(cls):
@@ -114,7 +116,7 @@ class SegmentationCompressor(object):
         self.load_datasets()
 
         with collectors_context(self.activations_collectors["train"]) as collectors:
-            top1, top5, loss = train(self.train_loader, self.model, self.criterion, self.optimizer, 
+            dsc, loss = train(self.train_loader, self.model, self.criterion, self.optimizer, 
                                      epoch, self.compression_scheduler, 
                                      loggers=[self.tflogger, self.pylogger], args=self.args)
             if verbose:
@@ -124,26 +126,26 @@ class SegmentationCompressor(object):
             if self.args.masks_sparsity:
                 msglogger.info(distiller.masks_sparsity_tbl_summary(self.model, 
                                                                     self.compression_scheduler))
-        return top1, top5, loss
+        return dsc, loss
 
     def train_validate_with_scheduling(self, epoch, validate=True, verbose=True):
         if self.compression_scheduler:
             self.compression_scheduler.on_epoch_begin(epoch)
 
-        top1, top5, loss = self.train_one_epoch(epoch, verbose)
+        dsc, loss = self.train_one_epoch(epoch, verbose)
         if validate:
-            top1, top5, loss = self.validate_one_epoch(epoch, verbose)
+            dsc, loss = self.validate_one_epoch(epoch, verbose)
 
         if self.compression_scheduler:
             self.compression_scheduler.on_epoch_end(epoch, self.optimizer, 
-                                                    metrics={'min': loss, 'max': top1})
-        return top1, top5, loss
+                                                    metrics={'min': loss, 'max': dsc})
+        return dsc, loss
 
     def validate_one_epoch(self, epoch, verbose=True):
         """Evaluate on validation set"""
         self.load_datasets()
         with collectors_context(self.activations_collectors["valid"]) as collectors:
-            top1, top5, vloss = validate(self.val_loader, self.model, self.criterion, 
+            dsc, vloss = validate(self.val_loader, self.model, self.criterion, 
                                          [self.pylogger], self.args, epoch)
             distiller.log_activation_statistics(epoch, "valid", loggers=[self.tflogger],
                                                 collector=collectors["sparsity"])
@@ -152,20 +154,19 @@ class SegmentationCompressor(object):
         if verbose:
             stats = ('Performance/Validation/',
             OrderedDict([('Loss', vloss),
-                         ('Top1', top1),
-                         ('Top5', top5)]))
+                         ('DSC', dsc)]))
             distiller.log_training_progress(stats, None, epoch, steps_completed=0,
                                             total_steps=1, log_freq=1, loggers=[self.tflogger])
-        return top1, top5, vloss
+        return dsc, vloss
 
-    def _finalize_epoch(self, epoch, top1, top5):
+    def _finalize_epoch(self, epoch, dsc):
         # Update the list of top scores achieved so far, and save the checkpoint
-        self.performance_tracker.step(self.model, epoch, top1=top1, top5=top5)
+        self.performance_tracker.step(self.model, epoch, dsc=dsc)
         _log_best_scores(self.performance_tracker, msglogger)
         best_score = self.performance_tracker.best_scores()[0]
         is_best = epoch == best_score.epoch
-        checkpoint_extras = {'current_top1': top1,
-                             'best_top1': best_score.top1,
+        checkpoint_extras = {'current_dsc': dsc,
+                             'best_dsc': best_score.dsc,
                              'best_epoch': best_score.epoch}
         if msglogger.logdir:
             apputils.save_checkpoint(epoch, self.args.arch, self.model, optimizer=self.optimizer,
@@ -192,8 +193,8 @@ class SegmentationCompressor(object):
         self.performance_tracker.reset()
         for epoch in range(self.start_epoch, self.ending_epoch):
             msglogger.info('\n')
-            top1, top5, loss = self.train_validate_with_scheduling(epoch)
-            self._finalize_epoch(epoch, top1, top5)
+            dsc, loss = self.train_validate_with_scheduling(epoch)
+            self._finalize_epoch(epoch, dsc)
         return self.performance_tracker.perf_scores_history
 
     def validate(self, epoch=-1):
@@ -518,13 +519,11 @@ def train(train_loader, model, criterion, optimizer, epoch,
         # Log some statistics
         errs = OrderedDict()
         if not early_exit_mode(args):
-            errs['Top1'] = classerr.value(1)
-            errs['Top5'] = classerr.value(5)
+            errs['DSC'] = classerr.value()[0]
         else:
-            # For Early Exit case, the Top1 and Top5 stats are computed for each exit.
+            # For Early Exit case, the DSC stats are computed for each exit.
             for exitnum in range(args.num_exits):
-                errs['Top1_exit' + str(exitnum)] = args.exiterrors[exitnum].value(1)
-                errs['Top5_exit' + str(exitnum)] = args.exiterrors[exitnum].value(5)
+                errs['DSC_exit' + str(exitnum)] = args.exiterrors[exitnum].value()[0]
 
         stats_dict = OrderedDict()
         for loss_name, meter in losses.items():
@@ -547,7 +546,8 @@ def train(train_loader, model, criterion, optimizer, epoch,
     losses = OrderedDict([(OVERALL_LOSS_KEY, tnt.AverageValueMeter()),
                           (OBJECTIVE_LOSS_KEY, tnt.AverageValueMeter())])
 
-    classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
+    # classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
+    classerr = tnt.AverageValueMeter()
     batch_time = tnt.AverageValueMeter()
     data_time = tnt.AverageValueMeter()
 
@@ -556,7 +556,7 @@ def train(train_loader, model, criterion, optimizer, epoch,
     if early_exit_mode(args):
         args.exiterrors = []
         for exitnum in range(args.num_exits):
-            args.exiterrors.append(tnt.ClassErrorMeter(accuracy=True, topk=(1, 5)))
+            args.exiterrors.append(tnt.AverageValueMeter())
 
     total_samples = len(train_loader.sampler)
     batch_size = train_loader.batch_size
@@ -592,13 +592,13 @@ def train(train_loader, model, criterion, optimizer, epoch,
             # Measure accuracy
             # For inception models, we only consider accuracy of main classifier
             if isinstance(output, tuple):
-                classerr.add(output[0].detach(), target)
+                classerr.add(dsc_score(output[0].detach(), target))
             else:
-                classerr.add(output.detach(), target)
-            acc_stats.append([classerr.value(1), classerr.value(5)])
+                classerr.add(dsc_score(output.detach(), target))
+            acc_stats.append([classerr.value()[0]])
         else:
             # Measure accuracy and record loss
-            classerr.add(output[args.num_exits-1].detach(), target) # add the last exit (original exit)
+            classerr.add(dsc_score(output[args.num_exits-1].detach(), target)) # add the last exit (original exit)
             loss = earlyexit_loss(output, target, criterion, args)
         # Record loss
         losses[OBJECTIVE_LOSS_KEY].add(loss.item())
@@ -636,8 +636,8 @@ def train(train_loader, model, criterion, optimizer, epoch,
 
         end = time.time()
     #return acc_stats
-    # NOTE: this breaks previous behavior, which returned a history of (top1, top5) values
-    return classerr.value(1), classerr.value(5), losses[OVERALL_LOSS_KEY]
+    # NOTE: this breaks previous behavior, which returned a history of (dsc) values
+    return classerr.value()(0), losses[OVERALL_LOSS_KEY]
 
 
 def validate(val_loader, model, criterion, loggers, args, epoch=-1):
@@ -658,10 +658,10 @@ def test(test_loader, model, criterion, loggers=None, activations_collectors=Non
         activations_collectors = create_activation_stats_collectors(model, None)
 
     with collectors_context(activations_collectors["test"]) as collectors:
-        top1, top5, lossses = _validate(test_loader, model, criterion, loggers, args)
+        dsc, lossses = _validate(test_loader, model, criterion, loggers, args)
         distiller.log_activation_statistics(-1, "test", loggers, collector=collectors['sparsity'])
         save_collectors_data(collectors, msglogger.logdir)
-    return top1, top5, lossses
+    return dsc, lossses
 
 
 # Temporary patch until we refactor early-exit handling
@@ -673,8 +673,7 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
     def _log_validation_progress():
         if not _is_earlyexit(args):
             stats_dict = OrderedDict([('Loss', losses['objective_loss'].mean),
-                                      ('Top1', classerr.value(1)),
-                                      ('Top5', classerr.value(5))])
+                                      ('DSC', classerr.value()[0])])
         else:
             stats_dict = OrderedDict()
             for exitnum in range(args.num_exits):
@@ -684,24 +683,22 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
                 # then accessing the value(k) will cause a divide by zero. So we'll build the OrderedDict
                 # accordingly and we will not print for an exit error when that exit is never taken.
                 if args.exit_taken[exitnum]:
-                    t1 = 'Top1_exit' + str(exitnum)
-                    t5 = 'Top5_exit' + str(exitnum)
-                    stats_dict[t1] = args.exiterrors[exitnum].value(1)
-                    stats_dict[t5] = args.exiterrors[exitnum].value(5)
+                    t1 = 'DSC_exit' + str(exitnum)
+                    stats_dict[t1] = args.exiterrors[exitnum].value()[0]
         stats = ('Performance/Validation/', stats_dict)
         distiller.log_training_progress(stats, None, epoch, steps_completed,
                                         total_steps, args.print_freq, loggers)
 
     """Execute the validation/test loop."""
     losses = {'objective_loss': tnt.AverageValueMeter()}
-    classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, 5))
+    classerr = tnt.AverageValueMeter()
 
     if _is_earlyexit(args):
         # for Early Exit, we have a list of errors and losses for each of the exits.
         args.exiterrors = []
         args.losses_exits = []
         for exitnum in range(args.num_exits):
-            args.exiterrors.append(tnt.ClassErrorMeter(accuracy=True, topk=(1, 5)))
+            args.exiterrors.append(tnt.AverageValueMeter())
             args.losses_exits.append(tnt.AverageValueMeter())
         args.exit_taken = [0] * args.num_exits
 
@@ -728,8 +725,7 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
                 loss = criterion(output, target)
                 # measure accuracy and record loss
                 losses['objective_loss'].add(loss.item())
-                # classerr.add(output.detach(), target)
-                classerr.add(output[:,0,0].detach(), target[:,0,0])
+                classerr.add(dsc_score(output.detach(), target))
 
                 if args.display_confusion:
                     confusion.add(output.detach(), target)
@@ -745,54 +741,16 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1):
                 _log_validation_progress()
 
     if not _is_earlyexit(args):
-        msglogger.info('==> Top1: %.3f    Top5: %.3f    Loss: %.3f\n',
-                       classerr.value()[0], classerr.value()[1], losses['objective_loss'].mean)
+        msglogger.info('==> DSC: %.3f    Loss: %.3f\n',
+                       classerr.value()[0], losses['objective_loss'].mean)
 
         if args.display_confusion:
-            # msglogger.info('==> Confusion:\n%s\n', str(confusion.value()))
-            msglogger.info('==> ClassErrorMeter Values come here: 2')
-        return classerr.value(1), classerr.value(5), losses['objective_loss'].mean
+            msglogger.info('==> Confusion:\n%s\n', str(confusion.value()))
+        return classerr.value()[0], losses['objective_loss'].mean
     else:
-        total_top1, total_top5, losses_exits_stats = earlyexit_validate_stats(args)
-        return total_top1, total_top5, losses_exits_stats[args.num_exits-1]
+        total_dsc, losses_exits_stats = earlyexit_validate_stats(args)
+        return total_dsc, losses_exits_stats[args.num_exits-1]
 
-
-def inception_training_loss(output, target, criterion, args):
-    """Compute weighted loss for Inception networks as they have auxiliary classifiers
-
-    Auxiliary classifiers were added to inception networks to tackle the vanishing gradient problem
-    They apply softmax to outputs of one or more intermediate inception modules and compute auxiliary
-    loss over same labels.
-    Note that auxiliary loss is purely used for training purposes, as they are disabled during inference.
-
-    GoogleNet has 2 auxiliary classifiers, hence two 3 outputs in total, output[0] is main classifier output,
-    output[1] is aux2 classifier output and output[2] is aux1 classifier output and the weights of the
-    aux losses are weighted by 0.3 according to the paper (C. Szegedy et al., "Going deeper with convolutions,"
-    2015 IEEE Conference on Computer Vision and Pattern Recognition (CVPR), Boston, MA, 2015, pp. 1-9.)
-
-    All other versions of Inception networks have only one auxiliary classifier, and the auxiliary loss
-    is weighted by 0.4 according to PyTorch documentation
-    # From https://discuss.pytorch.org/t/how-to-optimize-inception-model-with-auxiliary-classifiers/7958
-    """
-    weighted_loss = 0
-    if args.arch == 'googlenet':
-        # DEFAULT, aux classifiers are NOT included in PyTorch Pretrained googlenet model as they are NOT trained,
-        # they are only present if network is trained from scratch. If you need to fine tune googlenet (e.g. after
-        # pruning a pretrained model), then you have to explicitly enable aux classifiers when creating the model
-        # DEFAULT, in case of pretrained model, output length is 1, so loss will be calculated in main training loop
-        # instead of here, as we enter this function only if output is a tuple (len>1)
-        # TODO: Enable user to feed some input to add aux classifiers for pretrained googlenet model
-        outputs, aux2_outputs, aux1_outputs = output    # extract all 3 outputs
-        loss0 = criterion(outputs, target)
-        loss1 = criterion(aux1_outputs, target)
-        loss2 = criterion(aux2_outputs, target)
-        weighted_loss = loss0 + 0.3*loss1 + 0.3*loss2
-    else:
-        outputs, aux_outputs = output    # extract two outputs
-        loss0 = criterion(outputs, target)
-        loss1 = criterion(aux_outputs, target)
-        weighted_loss = loss0 + 0.4*loss1
-    return weighted_loss
 
 
 def earlyexit_loss(output, target, criterion, args):
@@ -809,7 +767,7 @@ def earlyexit_loss(output, target, criterion, args):
             continue
         exit_loss = criterion(output[exitnum], target)
         weighted_loss += args.earlyexit_lossweights[exitnum] * exit_loss
-        args.exiterrors[exitnum].add(output[exitnum].detach(), target)
+        args.exiterrors[exitnum].add(dsc_score(output[exitnum].detach(), target))
     # handle final exit
     weighted_loss += (1.0 - sum_lossweights) * criterion(output[args.num_exits-1], target)
     args.exiterrors[args.num_exits-1].add(output[args.num_exits-1].detach(), target)
@@ -822,7 +780,7 @@ def earlyexit_validate_loss(output, target, criterion, args):
     # but with a grouping of samples equal to the batch size.
     # Note that final group might not be a full batch - so determine actual size.
     this_batch_size = target.size(0)
-    earlyexit_validate_criterion = nn.CrossEntropyLoss(reduce=False).to(args.device)
+    earlyexit_validate_criterion = DiceLoss.to(args.device)
 
     for exitnum in range(args.num_exits):
         # calculate losses at each sample separately in the minibatch.
@@ -836,44 +794,40 @@ def earlyexit_validate_loss(output, target, criterion, args):
         for exitnum in range(args.num_exits - 1):
             if args.loss_exits[exitnum][batch_index] < args.earlyexit_thresholds[exitnum]:
                 # take the results from early exit since lower than threshold
-                args.exiterrors[exitnum].add(torch.tensor(np.array(output[exitnum].data[batch_index].cpu(), ndmin=2)),
-                                             torch.full([1], target[batch_index], dtype=torch.long))
+                args.exiterrors[exitnum].add(dsc_score(torch.tensor(np.array(output[exitnum].data[batch_index].cpu(), ndmin=2)),
+                                             torch.full([1], target[batch_index], dtype=torch.long)))
                 args.exit_taken[exitnum] += 1
                 earlyexit_taken = True
                 break                    # since exit was taken, do not affect the stats of subsequent exits
         # this sample does not exit early and therefore continues until final exit
         if not earlyexit_taken:
             exitnum = args.num_exits - 1
-            args.exiterrors[exitnum].add(torch.tensor(np.array(output[exitnum].data[batch_index].cpu(), ndmin=2)),
-                                         torch.full([1], target[batch_index], dtype=torch.long))
+            args.exiterrors[exitnum].add(dsc_score(torch.tensor(np.array(output[exitnum].data[batch_index].cpu(), ndmin=2)),
+                                         torch.full([1], target[batch_index], dtype=torch.long)))
             args.exit_taken[exitnum] += 1
 
 
 def earlyexit_validate_stats(args):
     # Print some interesting summary stats for number of data points that could exit early
-    top1k_stats = [0] * args.num_exits
-    top5k_stats = [0] * args.num_exits
+    dsc_stats = [0] * args.num_exits
     losses_exits_stats = [0] * args.num_exits
     sum_exit_stats = 0
     for exitnum in range(args.num_exits):
         if args.exit_taken[exitnum]:
             sum_exit_stats += args.exit_taken[exitnum]
             msglogger.info("Exit %d: %d", exitnum, args.exit_taken[exitnum])
-            top1k_stats[exitnum] += args.exiterrors[exitnum].value(1)
-            top5k_stats[exitnum] += args.exiterrors[exitnum].value(5)
+            dsc_stats[exitnum] += args.exiterrors[exitnum].value()[0]
             losses_exits_stats[exitnum] += args.losses_exits[exitnum].mean
     for exitnum in range(args.num_exits):
         if args.exit_taken[exitnum]:
             msglogger.info("Percent Early Exit %d: %.3f", exitnum,
                            (args.exit_taken[exitnum]*100.0) / sum_exit_stats)
-    total_top1 = 0
-    total_top5 = 0
+    total_dsc = 0
     for exitnum in range(args.num_exits):
-        total_top1 += (top1k_stats[exitnum] * (args.exit_taken[exitnum] / sum_exit_stats))
-        total_top5 += (top5k_stats[exitnum] * (args.exit_taken[exitnum] / sum_exit_stats))
-        msglogger.info("Accuracy Stats for exit %d: top1 = %.3f, top5 = %.3f", exitnum, top1k_stats[exitnum], top5k_stats[exitnum])
-    msglogger.info("Totals for entire network with early exits: top1 = %.3f, top5 = %.3f", total_top1, total_top5)
-    return total_top1, total_top5, losses_exits_stats
+        total_dsc += (dsc_stats[exitnum] * (args.exit_taken[exitnum] / sum_exit_stats))
+        msglogger.info("Accuracy Stats for exit %d: DSC = %.3f", exitnum, dsc_stats[exitnum])
+    msglogger.info("Totals for entire network with early exits: DSC = %.3f", total_dsc)
+    return total_dsc, losses_exits_stats
 
 
 def _convert_ptq_to_pytorch(model, args):
@@ -948,7 +902,7 @@ def quantize_and_test_model(test_loader, model, criterion, args, loggers=None, s
         checkpoint_name = 'quantized'
         apputils.save_checkpoint(0, args_qe.arch, qe_model, scheduler=scheduler,
             name='_'.join([args_qe.name, checkpoint_name]) if args_qe.name else checkpoint_name,
-            dir=msglogger.logdir, extras={'quantized_top1': test_res[0]})
+            dir=msglogger.logdir, extras={'quantized_dsc': test_res[0]})
 
     del qe_model
     return test_res
@@ -996,5 +950,5 @@ def _log_best_scores(performance_tracker, logger, how_many=-1):
     how_many = min(how_many, performance_tracker.max_len)
     best_scores = performance_tracker.best_scores(how_many)
     for score in best_scores:
-        logger.info('==> Best [Top1: %.3f   Top5: %.3f   Sparsity:%.2f   NNZ-Params: %d on epoch: %d]',
-                    score.top1, score.top5, score.sparsity, -score.params_nnz_cnt, score.epoch)
+        logger.info('==> Best [DSC: %.3f   Sparsity:%.2f   NNZ-Params: %d on epoch: %d]',
+                    score.dsc, score.sparsity, -score.params_nnz_cnt, score.epoch)

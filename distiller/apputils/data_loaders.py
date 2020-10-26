@@ -53,6 +53,14 @@ def classification_dataset_str_from_arch(arch):
     return dataset
 
 
+def segmentation_dataset_str_from_arch(arch):
+    if 'unet' in arch:
+        dataset = 'mri'
+    else:
+        dataset = None
+    return dataset
+
+
 def classification_num_classes(dataset):
     return {'cifar10': 10,
             'mnist': 10,
@@ -60,6 +68,10 @@ def classification_num_classes(dataset):
             'imagenet_v2': 1000,
             'dcase': 15,
             'mri': 1}.get(dataset, None)
+
+
+def segmentation_num_classes(dataset):
+    return {'mri': 1}.get(dataset, None)
 
 
 def classification_get_input_shape(dataset):
@@ -78,6 +90,12 @@ def classification_get_input_shape(dataset):
     else:
         raise ValueError("dataset %s is not supported" % dataset)
 
+
+def segmentation_get_input_shape(dataset):
+    if dataset == 'mri':
+        return 1, 3, 256, 256
+    else:
+        raise ValueError("dataset %s is not supported" % dataset)
 
 def __dataset_factory(dataset, arch):
     return {'cifar10': cifar10_get_datasets,

@@ -66,3 +66,25 @@ class SparsityAccuracyTracker(TrainingPerformanceTracker):
         self.perf_scores_history.sort(
             key=operator.attrgetter('params_nnz_cnt', 'top1', 'top5', 'epoch'),
             reverse=True)
+
+
+class SparsityDSCTracker(TrainingPerformanceTracker):
+    """A performance tracker which prioritizes non-zero parameters.
+
+    Sort the performance history using the count of non-zero parameters
+    as main sort key, then sort by DSC and and finally epoch number.
+
+    Expects 'dsc' to appear in the kwargs.
+    """
+    def step(self, model, epoch, **kwargs):
+        assert all(score in kwargs.keys() for score in ('dsc'))
+        model_sparsity, _, params_nnz_cnt = distiller.model_params_stats(model)
+        self.perf_scores_history.append(distiller.MutableNamedTuple({
+            'params_nnz_cnt': -params_nnz_cnt,
+            'sparsity': model_sparsity,
+            'dsc': kwargs['dsc'],
+            'epoch': epoch}))
+        # Keep perf_scores_history sorted from best to worst
+        self.perf_scores_history.sort(
+            key=operator.attrgetter('params_nnz_cnt', 'dsc', 'epoch'),
+            reverse=True)

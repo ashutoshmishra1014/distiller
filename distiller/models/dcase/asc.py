@@ -7,7 +7,7 @@ __all__ = ['ASC']
 
 
 model_urls = {
-    'asc': './usecase_pretrained_models/asc__200__.pth',
+    'asc': './usecase_pretrained_models/asc__.pth',
 }
 
 
