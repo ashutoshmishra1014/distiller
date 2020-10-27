@@ -637,7 +637,7 @@ def train(train_loader, model, criterion, optimizer, epoch,
         end = time.time()
     #return acc_stats
     # NOTE: this breaks previous behavior, which returned a history of (dsc) values
-    return classerr.value()(0), losses[OVERALL_LOSS_KEY]
+    return classerr.value()[0], losses[OVERALL_LOSS_KEY]
 
 
 def validate(val_loader, model, criterion, loggers, args, epoch=-1):
@@ -944,7 +944,7 @@ def _log_best_scores(performance_tracker, logger, how_many=-1):
 
     This function is currently written for pruning use-cases, but can be generalized.
     """
-    assert isinstance(performance_tracker, (apputils.SparsityAccuracyTracker))
+    assert isinstance(performance_tracker, (apputils.SparsityDSCTracker))
     if how_many < 1:
         how_many = performance_tracker.max_len
     how_many = min(how_many, performance_tracker.max_len)
