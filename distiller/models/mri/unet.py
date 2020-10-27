@@ -7,7 +7,7 @@ __all__ = ['UNet']
 
 
 model_urls = {
-    'unet': './usecase_pretrained_models/unet_distiller.pth',
+    'unet': './usecase_pretrained_models/unet_weights.pth',
 }
 
 class UNet(nn.Module):

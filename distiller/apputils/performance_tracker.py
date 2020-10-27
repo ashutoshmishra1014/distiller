@@ -21,7 +21,8 @@ import distiller
 
 
 __all__ = ["TrainingPerformanceTracker",
-           "SparsityAccuracyTracker"]
+           "SparsityAccuracyTracker",
+           "SparsityDSCTracker"]
 
 
 class TrainingPerformanceTracker(object):

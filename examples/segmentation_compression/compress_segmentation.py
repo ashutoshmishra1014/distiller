@@ -189,7 +189,8 @@ def sensitivity_analysis(model, criterion, data_loader, loggers, args, sparsitie
                                                          net_params=which_params,
                                                          sparsities=sparsities,
                                                          test_func=test_fnc,
-                                                         group=args.sensitivity)
+                                                         group=args.sensitivity,
+                                                         model_type="segmentation")
     distiller.sensitivities_to_png(sensitivity, os.path.join(msglogger.logdir, 'sensitivity.png'))
     distiller.sensitivities_to_csv(sensitivity, os.path.join(msglogger.logdir, 'sensitivity.csv'))
 

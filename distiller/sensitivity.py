@@ -38,7 +38,7 @@ from .scheduler import CompressionScheduler
 msglogger = logging.getLogger()
 
 
-def perform_sensitivity_analysis(model, net_params, sparsities, test_func, group):
+def perform_sensitivity_analysis(model, net_params, sparsities, test_func, group, model_type='classification'):
     """Perform a sensitivity test for a model's weights parameters.
 
     The model should be trained to maximum accuracy, because we aim to understand
@@ -114,8 +114,12 @@ def perform_sensitivity_analysis(model, net_params, sparsities, test_func, group
             scheduler.mask_all_weights()
 
             # Test and record the performance of the pruned model
-            prec1, prec5, loss = test_func(model=model_cpy)
-            sensitivity[sparsity_level] = (prec1, prec5, loss)
+            if model_type in ['classification']:
+                prec1, prec5, loss = test_func(model=model_cpy)
+                sensitivity[sparsity_level] = (prec1, prec5, loss)
+            elif model_type in ['segmentation']:
+                dsc, loss = test_func(model=model_cpy)
+                sensitivity[sparsity_level] = (dsc, loss)
             sensitivities[param_name] = sensitivity
     return sensitivities
 

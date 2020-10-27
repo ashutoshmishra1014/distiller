@@ -770,7 +770,7 @@ def earlyexit_loss(output, target, criterion, args):
         args.exiterrors[exitnum].add(dsc_score(output[exitnum].detach(), target))
     # handle final exit
     weighted_loss += (1.0 - sum_lossweights) * criterion(output[args.num_exits-1], target)
-    args.exiterrors[args.num_exits-1].add(output[args.num_exits-1].detach(), target)
+    args.exiterrors[args.num_exits-1].add(dsc_score(output[args.num_exits-1].detach(), target))
     return weighted_loss
 
 
