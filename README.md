@@ -135,6 +135,7 @@ This creates a conda environment named ```distiller``` where the python virtual 
 $ conda activate distiller
 ```
 <br>
+
 #### Using virtualenv
 If you don't have virtualenv installed, you can find the installation instructions [here](https://packaging.python.org/guides/installing-using-pip-and-virtualenv/).
 
