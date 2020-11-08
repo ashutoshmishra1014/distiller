@@ -115,7 +115,7 @@ The rest of the documentation that follows, assumes that you have cloned your re
 <p>
 
 We recommend using a python virtual environment preferably conda, but that of course, is up to you.
-There's nothing special about using Distiller in a conda virtual environment, but we provide some installation instructions for both conda and venv, for completeness.<br>
+There's nothing special about using Distiller in a conda virtual environment, so we provide some installation instructions for both conda and venv, for completeness.<br>
 Before creating the conda virtual environment, make sure you are located in directory ```distiller```.
 <br>
 #### Using conda virtual environment
@@ -135,6 +135,7 @@ This creates a conda environment named ```distiller``` where the python virtual 
 $ conda activate distiller
 ```
 <br>
+
 #### Using virtualenv
 If you don't have virtualenv installed, you can find the installation instructions [here](https://packaging.python.org/guides/installing-using-pip-and-virtualenv/).
 
