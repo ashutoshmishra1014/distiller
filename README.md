@@ -114,9 +114,9 @@ The rest of the documentation that follows, assumes that you have cloned your re
 <details><summary><b>2. Create a Python virtual environment</b></summary>	
 <p>
 
-We recommend using a [Python conda environment](https://www.anaconda.com/products/individual#linux), but that of course, is up to you.
-There's nothing special about using Distiller in a conda virtual environment, but we provide some instructions, for completeness.<br>
-Before creating the conda virtual environment, make sure you are located in directory ```distiller```.  After creating the environment, you should see a directory called ```distiller/env```.
+We recommend using a python virtual environment preferably conda, but that of course, is up to you.
+There's nothing special about using Distiller in a conda virtual environment, but we provide some installation instructions for both conda and venv, for completeness.<br>
+Before creating the conda virtual environment, make sure you are located in directory ```distiller```.
 <br>
 #### Using conda virtual environment
 If you don't have anaconda installed, you can find the installable [here](https://www.anaconda.com/products/individual#linux/).
