@@ -114,9 +114,26 @@ The rest of the documentation that follows, assumes that you have cloned your re
 <details><summary><b>2. Create a Python virtual environment</b></summary>	
 <p>
 
-We recommend using a [Python virtual environment](https://docs.python.org/3/library/venv.html#venv-def), but that of course, is up to you.
-There's nothing special about using Distiller in a virtual environment, but we provide some instructions, for completeness.<br>
-Before creating the virtual environment, make sure you are located in directory ```distiller```.  After creating the environment, you should see a directory called ```distiller/env```.
+We recommend using a [Python conda environment](https://www.anaconda.com/products/individual#linux), but that of course, is up to you.
+There's nothing special about using Distiller in a conda virtual environment, but we provide some instructions, for completeness.<br>
+Before creating the conda virtual environment, make sure you are located in directory ```distiller```.  After creating the environment, you should see a directory called ```distiller/env```.
+<br>
+#### Using conda virtual environment
+If you don't have anaconda installed, you can find the installable [here](https://www.anaconda.com/products/individual#linux/).
+To install anaconda:
+```
+$ sh <anaconda installable file/Anaconda3-2020.07-Linux-x86_64.sh>
+```
+To create the environment, execute:
+```
+$ conda env create -f environment.yml
+```
+This creates a conda environment named ```distiller``` where the python virtual environment is stored, and configures the current shell to use it as the default python environment. The environment however needs additional pip libraries(through setup of distiller package). Additional libraries should be installed after activation of the ```distiller``` environment.
+#### Activate the environment
+**!NOTE: Make sure to activate the environment, before proceeding with the installation of the dependency packages:<br>**
+```
+$ conda activate distiller
+```
 <br>
 #### Using virtualenv
 If you don't have virtualenv installed, you can find the installation instructions [here](https://packaging.python.org/guides/installing-using-pip-and-virtualenv/).
