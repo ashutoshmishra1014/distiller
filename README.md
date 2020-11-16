@@ -200,6 +200,15 @@ Distiller comes with sample applications and tutorials covering a range of model
 | [Recommendation System (NCF)](https://github.com/NervanaSystems/distiller/tree/master/examples/ncf) | |  :white_check_mark: | | |
 | [Object Detection](https://github.com/NervanaSystems/distiller/tree/master/examples/object_detection_compression) |  :white_check_mark: | | | |
 
+For the purpose of the university seminar, we have included 3 additional model usecases:
+| Model Type | Sparsity | Post-training quantization | Quantization-aware training | Auto Compression (AMC) | Knowledge Distillation |
+|------------|:--------:|:--------------------------:|:---------------------------:|:----------------------:|:--------:|
+| [Resnet18(Image classification)](https://github.com/NervanaSystems/distiller/tree/master/examples/classifier_compression) | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [Audio Scene Classification](https://github.com/NervanaSystems/distiller/tree/master/examples/word_language_model)| :white_check_mark: | :white_check_mark: | | |
+| [(Unet) Image Segmentation](https://github.com/NervanaSystems/distiller/tree/master/examples/GNMT) | | :white_check_mark: | | | |
+
+
+
 Head to the [examples](https://github.com/NervanaSystems/distiller/tree/master/examples) directory for more details.
 
 Other resources to refer to, beyond the examples:
