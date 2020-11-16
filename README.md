@@ -208,7 +208,8 @@ For the purpose of the university seminar, we have included 3 additional model u
 | [(Unet) Image Segmentation](https://github.com/NervanaSystems/distiller/tree/master/examples/segmentation_compression) | unet | mri | :white_check_mark: | | | |
 
 Distiller already provides support for Resnet18 with it's own implementation. We recommend to use Resnet18_v2 version instead which is official implementation from Torchvision. "_v2" suffix for the architecture name and dataset is only for differentiation from the distiller implementation.
-Please use the aforementioned *arch* and *dataset* while running the compression commands for these 3 usecases.
+
+Please use the aforementioned #*arch*# and #*dataset*# while running the compression commands for these 3 usecases.
 
 Head to the [examples](https://github.com/NervanaSystems/distiller/tree/master/examples) directory for more details.
 
