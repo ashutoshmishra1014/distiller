@@ -204,8 +204,8 @@ For the purpose of the university seminar, we have included 3 additional model u
 | Model Type | Arch | Dataset | Sparsity | Post-training quantization | Quantization-aware training |
 |------------|:----:|:-------:|:--------:|---------------------------:|:---------------------------:|
 | [Resnet18(Image classification)](https://github.com/NervanaSystems/distiller/tree/master/examples/classifier_compression) | resnet18_v2 | imagenet_v2 |  :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| [Audio Scene Classification](https://github.com/NervanaSystems/distiller/tree/master/examples/classifier_compression)| asc | dcase | :white_check_mark: | :white_check_mark: | |
-| [(Unet) Image Segmentation](https://github.com/NervanaSystems/distiller/tree/master/examples/segmentation_compression) | unet | mri | :white_check_mark: | | | |
+| [Audio Scene Classification](https://github.com/NervanaSystems/distiller/tree/master/examples/classifier_compression)| asc | dcase | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [(Unet) Image Segmentation](https://github.com/NervanaSystems/distiller/tree/master/examples/segmentation_compression) | unet | mri | :white_check_mark: | :white_check_mark:  | :white_check_mark: | |
 
 Distiller already provides support for Resnet18 with it's own implementation. We recommend to use Resnet18_v2 version instead which is official implementation from Torchvision. "_v2" suffix for the architecture name and dataset is only for differentiation from the distiller implementation.
 
