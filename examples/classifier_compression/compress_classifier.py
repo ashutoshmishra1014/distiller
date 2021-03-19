@@ -97,7 +97,11 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
     elif args.export_onnx is not None:
         distiller.export_img_classifier_to_onnx(model,
                                                 os.path.join(msglogger.logdir, args.export_onnx),
-                                                args.dataset, add_softmax=True, verbose=False)
+                                                args.dataset, add_softmax=True, verbose=False, opset_version=11)
+        test_loader = load_test_data(args)
+        classifier.evaluate_model(test_loader, model, criterion, pylogger,
+            classifier.create_activation_stats_collectors(model, *args.activation_stats),
+            args, scheduler=compression_scheduler)
         do_exit = True
     elif args.qe_calibration and not (args.evaluate and args.quantize_eval):
         classifier.acts_quant_stats_collection(model, criterion, pylogger, args, save_to_file=True)
@@ -118,6 +122,11 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
             classifier.evaluate_model(test_loader, model, criterion, pylogger,
                 classifier.create_activation_stats_collectors(model, *args.activation_stats),
                 args, scheduler=compression_scheduler)
+            
+        if args.export_torchscript:
+            distiller.export_img_classifier_to_torchscript(model,
+                                                    os.path.join(msglogger.logdir, args.export_torchscript), 
+                                                    args.dataset)
         do_exit = True
     elif args.thinnify:
         assert args.resumed_checkpoint_path is not None, \
@@ -127,7 +136,12 @@ def handle_subapps(model, criterion, optimizer, compression_scheduler, pylogger,
                                  name="{}_thinned".format(args.resumed_checkpoint_path.replace(".pth.tar", "")),
                                  dir=msglogger.logdir)
         msglogger.info("Note: if your model collapsed to random inference, you may want to fine-tune")
-        do_exit = True
+        do_exit = True  
+    elif args.qe_convert_pytorch:
+        assert args.resumed_checkpoint_path is not None, \
+            "You must use --resume-from to provide a quantized checkpoint file to convert to pytorch"
+        model = classifier._convert_ptq_to_pytorch(model, args)
+        torch.save(model.state_dict(), msglogger.logdir)
     return do_exit
 
 

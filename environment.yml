@@ -105,7 +105,6 @@ dependencies:
     - pyrsistent==0.16.0
     - pytest==4.6.11
     - python-dateutil==2.8.1
-    - python-graphviz==0.10.1
     - pytz==2020.1
     - pyyaml==5.3.1
     - pyzmq==19.0.2

@@ -271,6 +271,8 @@ def init_classifier_compression_arg_parser(include_ptq_lapq_args=False):
                         help='print a summary of the model, and exit - options: | '.join(SUMMARY_CHOICES))
     parser.add_argument('--export-onnx', action='store', nargs='?', type=str, const='model.onnx', default=None,
                         help='export model to ONNX format')
+    parser.add_argument('--export-torchscript', action='store', nargs='?', type=str, const='model.tjm', default=None,
+                        help='export model to torchscript format')
     parser.add_argument('--compress', dest='compress', type=str, nargs='?', action='store',
                         help='configuration file for pruning the model (default is to use hard-coded schedule)')
     parser.add_argument('--sense', dest='sensitivity', choices=['element', 'filter', 'channel'],
@@ -879,14 +881,14 @@ def _convert_ptq_to_pytorch(model, args):
     args.device = 'cpu'
     return model
 
-
+    
 def evaluate_model(test_loader, model, criterion, loggers, activations_collectors=None, args=None, scheduler=None):
     # This sample application can be invoked to evaluate the accuracy of your model on
     # the test dataset.
     # You can optionally quantize the model to 8-bit integer before evaluation.
     # For example:
     # python3 compress_classifier.py --arch resnet20_cifar  ../data.cifar10 -p=50 --resume-from=checkpoint.pth.tar --evaluate
-
+        
     if not isinstance(loggers, list):
         loggers = [loggers]
 
@@ -894,6 +896,7 @@ def evaluate_model(test_loader, model, criterion, loggers, activations_collector
         # Handle case where a post-train quantized model was loaded, and user wants to convert it to PyTorch
         if args.qe_convert_pytorch:
             model = _convert_ptq_to_pytorch(model, args)
+            
         return test(test_loader, model, criterion, loggers, activations_collectors, args=args)
     else:
         return quantize_and_test_model(test_loader, model, criterion, args, loggers,

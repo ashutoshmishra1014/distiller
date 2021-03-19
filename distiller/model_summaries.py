@@ -39,7 +39,7 @@ __all__ = ['model_summary',
            'model_performance_summary', 'model_performance_tbl_summary', 'masks_sparsity_tbl_summary',
            'attributes_summary', 'attributes_summary_tbl', 'connectivity_summary',
            'connectivity_summary_verbose', 'connectivity_tbl_summary', 'create_png', 'create_pydot_graph',
-           'draw_model_to_file', 'draw_img_classifier_to_file', 'export_img_classifier_to_onnx']
+           'draw_model_to_file', 'draw_img_classifier_to_file', 'export_img_classifier_to_onnx', 'export_img_classifier_to_torchscript']
 
 
 def model_summary(model, what, dataset=None, logdir=''):
@@ -465,7 +465,8 @@ def export_img_classifier_to_onnx(model, onnx_fname, dataset, add_softmax=True, 
     """
     dummy_input = distiller.get_dummy_input(dataset, distiller.model_device(model))
     # Pytorch doesn't support exporting modules wrapped in DataParallel
-    non_para_model = distiller.make_non_parallel_copy(model)
+    # non_para_model = distiller.make_non_parallel_copy(model)
+    non_para_model = model
 
     try:
         if add_softmax:
@@ -479,6 +480,22 @@ def export_img_classifier_to_onnx(model, onnx_fname, dataset, add_softmax=True, 
         msglogger.info('Exported the model to ONNX format at %s' % os.path.realpath(onnx_fname))
     finally:
         del non_para_model
+        
+        
+def export_img_classifier_to_torchscript(model, torchscript_fname, dataset):
+    """Export a PyTorch image classifier to Torchscript.
+    """
+    dummy_input = distiller.get_dummy_input(dataset, distiller.model_device(model))
+    # Pytorch doesn't support exporting modules wrapped in DataParallel
+    # Also, torch.save doesn't work with quantized modules so non_parallel_copy wouldn't work
+    # non_para_model = distiller.make_non_parallel_copy(model)
+
+    try:
+        trace = torch.jit.trace(model, dummy_input)
+        torch.jit.save(trace, torchscript_fname)
+        msglogger.info('Exported the model to torchscript format at %s' % os.path.realpath(torchscript_fname))
+    finally:
+        pass
 
 
 def data_node_has_parent(g, id):

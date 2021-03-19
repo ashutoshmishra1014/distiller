@@ -1,0 +1,180 @@
+# SSL: Channel regularization
+#
+# time python3 compress_classifier.py --arch resnet18  /scratch/datasets/IMAGENET/ -p=50 --lr=0.3 --epochs=180 --compress=/home/mha/checkouts/NNO_DISTILLER/kiss_yaml/resnet18_ssl_channels-removal_training.yaml -j=1 --deterministic -o /home/mha/checkouts/NNO_DISTILLER/kiss_logs
+#
+# To fine-tune:
+# time python3 compress_classifier.py --arch resnet20_cifar  ../../../data.cifar10 -p=50 --lr=0.2 --epochs=98 --compress=../ssl/ssl_channels-removal_finetuning.yaml -j=1 --deterministic --resume=...
+
+
+lr_schedulers:
+  training_lr:
+    class: StepLR
+    step_size: 45
+    gamma: 0.10
+
+pruners:
+  channel_pruner_70:
+    class: L1RankedStructureParameterPruner_AGP
+    initial_sparsity : 0.0
+    final_sparsity: 0.5
+    group_type: Channels
+    weights: [
+            module.layer1.0.conv2.weight,
+            module.layer1.1.conv2.weight,
+
+            module.layer2.1.conv2.weight,
+            module.layer2.0.conv2.weight,
+
+            module.layer3.1.conv2.weight, 
+            module.layer3.0.conv2.weight, 
+
+            module.layer4.1.conv2.weight,
+            module.layer4.0.conv2.weight, 
+    ]
+
+  channel_pruner_60_1:
+    class: L1RankedStructureParameterPruner_AGP
+    initial_sparsity : 0.0
+    final_sparsity: 0.4
+    group_type: Channels
+    weights: [
+            module.layer2.1.conv2.weight,
+            module.layer2.0.conv2.weight,
+    ]
+
+  channel_pruner_60_2:
+    class: L1RankedStructureParameterPruner_AGP
+    initial_sparsity : 0.1
+    final_sparsity: 0.4
+    group_type: Channels
+    group_dependency: Leader
+    weights: [
+            module.layer2.0.conv1.weight, 
+            module.layer2.0.downsample.0.weight
+    ]
+
+  channel_pruner_50_1:
+    class: L1RankedStructureParameterPruner_AGP
+    initial_sparsity : 0.0
+    final_sparsity: 0.3
+    group_type: Channels
+    # group_dependency: Leader
+    weights: [
+            module.layer3.1.conv2.weight, 
+            module.layer3.0.conv2.weight, 
+    ]
+
+  channel_pruner_50_2:
+    class: L1RankedStructureParameterPruner_AGP
+    initial_sparsity : 0.0
+    final_sparsity: 0.3
+    group_type: Channels
+    group_dependency: Leader
+    weights: [
+            module.layer3.0.conv1.weight, 
+            module.layer3.0.downsample.0.weight
+    ]
+
+  channel_pruner_40_1:
+    class: L1RankedStructureParameterPruner_AGP
+    initial_sparsity : 0.0
+    final_sparsity: 0.3
+    group_type: Channels
+    # group_dependency: Leader
+    weights: [
+            module.layer4.1.conv2.weight,
+            module.layer4.0.conv2.weight, 
+    ]
+
+  channel_pruner_40_2:
+    class: L1RankedStructureParameterPruner_AGP
+    initial_sparsity : 0.0
+    final_sparsity: 0.3
+    group_type: Channels
+    group_dependency: Leader
+    weights: [
+            module.layer4.0.conv1.weight, 
+            module.layer4.0.downsample.0.weight
+    ]
+
+
+# regularizers:
+#   Channels_groups_regularizer:
+#     class: GroupLassoRegularizer
+#     reg_regims:
+#       module.layer1.0.conv2.weight: [0.0014, Channels]
+#       module.layer1.1.conv2.weight: [0.0014, Channels]
+#       module.layer1.2.conv2.weight: [0.0012, Channels]
+#       module.layer2.0.conv2.weight: [0.0008, Channels]   # sensitive
+#       module.layer2.1.conv2.weight: [0.0014, Channels]
+#       module.layer2.2.conv2.weight: [0.0014, Channels]
+#       module.layer3.0.conv2.weight: [0.0008, Channels]  # sensitive
+#       module.layer3.1.conv2.weight: [0.0014, Channels]
+#       module.layer3.2.conv2.weight: [0.0006, Channels] # very sensitive
+#     threshold_criteria: Mean_Abs
+
+
+extensions:
+  net_thinner:
+      class: 'ChannelRemover'
+      thinning_func_str: remove_channels
+      arch: 'resnet18'
+      dataset: 'imagenet'
+
+policies:  
+  - lr_scheduler:
+      instance_name: training_lr
+    starting_epoch: 2
+    ending_epoch: 60
+    frequency: 1
+
+
+  - pruner:
+      instance_name: channel_pruner_70
+    starting_epoch: 0
+    ending_epoch: 50
+    frequency: 5
+
+  # - pruner:
+  #     instance_name: channel_pruner_60_1
+  #   starting_epoch: 0
+  #   ending_epoch: 60
+  #   frequency: 5
+
+  # - pruner:
+  #     instance_name: channel_pruner_50_1
+  #   starting_epoch: 0
+  #   ending_epoch: 60
+  #   frequency: 5
+  
+  # - pruner:
+  #     instance_name: channel_pruner_40_1
+  #   starting_epoch: 0
+  #   ending_epoch: 60
+  #   frequency: 5
+  
+  
+  # - pruner:
+  #     instance_name: channel_pruner_60_2
+  #   starting_epoch: 0
+  #   ending_epoch: 30
+  #   frequency: 1
+
+
+  # - pruner:
+  #     instance_name: channel_pruner_50_2
+  #   starting_epoch: 0
+  #   ending_epoch: 30
+  #   frequency: 1
+
+
+  # - pruner:
+  #     instance_name: channel_pruner_40_2
+  #   starting_epoch: 0
+  #   ending_epoch: 30
+  #   frequency: 1
+
+# After completeing the regularization, we perform network thinning and exit.
+  - extension:
+      instance_name: net_thinner
+    epochs: [2]

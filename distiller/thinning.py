@@ -378,6 +378,7 @@ def create_thinning_recipe_filters(sgraph, model, zeros_mask_dict):
         # If there are non-zero filters in this tensor then continue to next tensor
         if num_filters <= num_nnz_filters:
             msglogger.debug("Skipping {} shape={}".format(param_name, param.shape))
+            print("Skipping {} shape={}".format(param_name, param.shape))
             continue
 
         msglogger.debug("In tensor %s found %d/%d zero filters", param_name,
