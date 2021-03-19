@@ -188,6 +188,7 @@ def load_checkpoint(model, chkpt_file, optimizer=None,
     assert optimizer == None, "argument optimizer is deprecated and must be set to None"
 
     msglogger.info("=> loading checkpoint %s", chkpt_file)
+    print("=> loading checkpoint %s", chkpt_file)
     checkpoint = torch.load(chkpt_file, map_location=lambda storage, loc: storage)
     msglogger.info('=> Checkpoint contents:\n%s\n' % get_contents_table(checkpoint))
     if 'extras' in checkpoint:

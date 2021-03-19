@@ -488,11 +488,11 @@ def export_img_classifier_to_torchscript(model, torchscript_fname, dataset):
     dummy_input = distiller.get_dummy_input(dataset, distiller.model_device(model))
     # Pytorch doesn't support exporting modules wrapped in DataParallel
     # Also, torch.save doesn't work with quantized modules so non_parallel_copy wouldn't work
-    # non_para_model = distiller.make_non_parallel_copy(model)
+    non_para_model = distiller.make_non_parallel_copy(model)
 
     try:
-        trace = torch.jit.trace(model, dummy_input)
-        torch.jit.save(trace, torchscript_fname)
+        traced_module = torch.jit.trace(non_para_model, dummy_input)
+        torch.jit.save(trace_module, torchscript_fname)
         msglogger.info('Exported the model to torchscript format at %s' % os.path.realpath(torchscript_fname))
     finally:
         pass
