@@ -31,7 +31,7 @@ import pandas as pd
 import dcase_util
 import glob
 
-from . import datasets as distiller_datasets
+from . import distiller_datasets as distiller_datasets
 
 
 DATASETS_NAMES = ['imagenet', 'cifar10', 'mnist', 'imagenet_v2', 'dcase', 'mri']
